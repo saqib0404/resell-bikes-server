@@ -49,6 +49,16 @@ async function run() {
         })
 
         // Bookings
+        app.get('/bookings', verifyJwt, async (req, res) => {
+            const email = req.query.email;
+            if (email !== req.decoded.email) {
+                return res.status(403).send({ message: "Forbidden Token" });
+            }
+            const query = { email: email };
+            const bookings = await bookingCollection.find(query).toArray();
+            res.send(bookings);
+        })
+
         app.post('/bookings', async (req, res) => {
             const booking = req.body;
             const query = {
