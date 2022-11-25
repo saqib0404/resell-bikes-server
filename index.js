@@ -31,11 +31,37 @@ async function run() {
     try {
         const userCollection = client.db('resell-bikes').collection('users');
         const categoryCollection = client.db('resell-bikes').collection('productsCategory');
+        const productCollection = client.db('resell-bikes').collection('products');
+        const bookingCollection = client.db('resell-bikes').collection('bookings');
 
-        app.get('/productsCategory', async (req, res) => {
+        // Products
+        app.get('/category', async (req, res) => {
             const query = {}
             const result = await categoryCollection.find(query).toArray();
             res.send(result)
+        })
+
+        app.get('/category/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { category_id: id }
+            const result = await productCollection.find(query).toArray();
+            res.send(result)
+        })
+
+        // Bookings
+        app.post('/bookings', async (req, res) => {
+            const booking = req.body;
+            const query = {
+                email: booking.email,
+                item: booking.item,
+            }
+            const alreadybooked = await bookingCollection.find(query).toArray();
+            if (alreadybooked.length) {
+                const message = `Sorry Sir, you have already booked ${booking.item}`
+                return res.send({ acknowledged: false, message })
+            }
+            const result = await bookingCollection.insertOne(booking);
+            res.send(result);
         })
 
         app.get('/jwt', async (req, res) => {
@@ -49,6 +75,7 @@ async function run() {
             res.status(403).send({ accessToken: "" })
         })
 
+        // Users
         app.post('/users', async (req, res) => {
             const user = req.body;
             const result = await userCollection.insertOne(user);
