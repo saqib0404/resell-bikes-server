@@ -33,6 +33,7 @@ async function run() {
         const userCollection = client.db('resell-bikes').collection('users');
         const categoryCollection = client.db('resell-bikes').collection('productsCategory');
         const productCollection = client.db('resell-bikes').collection('products');
+        const sellerProductCollection = client.db('resell-bikes').collection('sellerProducts');
         const bookingCollection = client.db('resell-bikes').collection('bookings');
         const paymentCollection = client.db('resell-bikes').collection('payment');
 
@@ -63,10 +64,46 @@ async function run() {
         })
 
         // Products
-        app.post('/products', verifyJwt, async (req, res) => {
+        app.post('/products', verifyJwt, veryifySeller, async (req, res) => {
             const product = req.body;
             const result = await productCollection.insertOne(product);
+            const sellerProduct = await sellerProductCollection.insertOne(product);
             res.send(result);
+        })
+
+        app.get('/products', verifyJwt, veryifySeller, async (req, res) => {
+            const email = req.query.email;
+            const query = { email }
+            const result = await sellerProductCollection.find(query).toArray();
+            res.send(result);
+        })
+
+        app.get('/advertiserproducts', async (req, res) => {
+            const query = { advertised:true }
+            const result = await productCollection.find(query).toArray();
+            res.send(result);
+        })
+
+        app.patch('/products', verifyJwt, veryifySeller, async (req, res) => {
+            const id = req.query.id;
+            console.log(id);
+            const query = { _id: ObjectId(id) };
+            const updatedDoc = {
+                $set: {
+                    advertised: true
+                }
+            }
+            const result = await productCollection.updateOne(query, updatedDoc);
+            const sellerProduct = await sellerProductCollection.updateOne(query, updatedDoc);
+            res.send(sellerProduct);
+        })
+
+        app.delete('/products/:id', verifyJwt, veryifySeller, async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: ObjectId(id) }
+            const result = await sellerProductCollection.deleteOne(query);
+            const deleted = await productCollection.deleteOne(query);
+            res.send(deleted);
         })
 
         // Bookings
@@ -135,6 +172,7 @@ async function run() {
             const product = payment.productId;
             const filter = { _id: ObjectId(product) }
             const deletedProduct = await productCollection.deleteOne(filter);
+            const paidProduct = await sellerProductCollection.updateOne(filter, updatedDoc)
             const paymentResult = await bookingCollection.updateOne(query, updatedDoc);
             res.send(result);
         })
