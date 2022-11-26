@@ -36,7 +36,19 @@ async function run() {
         const bookingCollection = client.db('resell-bikes').collection('bookings');
         const paymentCollection = client.db('resell-bikes').collection('payment');
 
-        // Products
+        // Seller checking
+        const veryifySeller = async (req, res, next) => {
+            const decodedEmail = req.decoded.email;
+            const query = { email: decodedEmail };
+            const user = await userCollection.findOne(query);
+
+            if (user?.userType !== 'Seller') {
+                return res.status(403).send({ message: "Forbidden access" })
+            }
+            next();
+        }
+
+        // Categories
         app.get('/category', async (req, res) => {
             const query = {}
             const result = await categoryCollection.find(query).toArray();
@@ -48,6 +60,13 @@ async function run() {
             const query = { category_id: id }
             const result = await productCollection.find(query).toArray();
             res.send(result)
+        })
+
+        // Products
+        app.post('/products', verifyJwt, async (req, res) => {
+            const product = req.body;
+            const result = await productCollection.insertOne(product);
+            res.send(result);
         })
 
         // Bookings
@@ -133,6 +152,13 @@ async function run() {
         })
 
         // Users
+        app.get('/users/seller/:email', async (req, res) => {
+            const email = req.params.email;
+            const query = { email };
+            const user = await userCollection.findOne(query);
+            res.send({ isSeller: user?.userType === "Seller" })
+        })
+
         app.get('/users', verifyJwt, async (req, res) => {
             const email = req.query.email;
             const query = { email: email };
