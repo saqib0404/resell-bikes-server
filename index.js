@@ -79,14 +79,13 @@ async function run() {
         })
 
         app.get('/advertiserproducts', async (req, res) => {
-            const query = { advertised:true }
+            const query = { advertised: true }
             const result = await productCollection.find(query).toArray();
             res.send(result);
         })
 
         app.patch('/products', verifyJwt, veryifySeller, async (req, res) => {
             const id = req.query.id;
-            console.log(id);
             const query = { _id: ObjectId(id) };
             const updatedDoc = {
                 $set: {
@@ -206,6 +205,11 @@ async function run() {
 
         app.post('/users', async (req, res) => {
             const user = req.body;
+            const query = { email: user?.email }
+            const existingUser = await userCollection.find(query).toArray();
+            if (existingUser.length) {
+                return res.send(existingUser);
+            }
             const result = await userCollection.insertOne(user);
             res.send(result);
         })
