@@ -34,6 +34,7 @@ async function run() {
         const categoryCollection = client.db('resell-bikes').collection('productsCategory');
         const productCollection = client.db('resell-bikes').collection('products');
         const sellerProductCollection = client.db('resell-bikes').collection('sellerProducts');
+        const reportedProductCollection = client.db('resell-bikes').collection('reportedProducts');
         const bookingCollection = client.db('resell-bikes').collection('bookings');
         const paymentCollection = client.db('resell-bikes').collection('payment');
 
@@ -44,6 +45,18 @@ async function run() {
             const user = await userCollection.findOne(query);
 
             if (user?.userType !== 'Seller') {
+                return res.status(403).send({ message: "Forbidden access" })
+            }
+            next();
+        }
+
+        // Admin checking
+        const veryifyAdmin = async (req, res, next) => {
+            const decodedEmail = req.decoded.email;
+            const query = { email: decodedEmail };
+            const user = await userCollection.findOne(query);
+
+            if (user?.userType !== 'Admin') {
                 return res.status(403).send({ message: "Forbidden access" })
             }
             next();
@@ -103,6 +116,33 @@ async function run() {
             const result = await sellerProductCollection.deleteOne(query);
             const deleted = await productCollection.deleteOne(query);
             res.send(deleted);
+        })
+
+        // Reported Items
+        app.post('/reporteditems', verifyJwt, async (req, res) => {
+            const report = req.body;
+            const result = await reportedProductCollection.insertOne(report);
+            res.send(result);
+        })
+
+        app.get('/reporteditems', verifyJwt, veryifyAdmin, async (req, res) => {
+            const query = {};
+            const result = await reportedProductCollection.find(query).toArray();
+            res.send(result);
+        })
+
+        app.delete('/reporteditems/:id', verifyJwt, veryifyAdmin, async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: ObjectId(id) };
+            const result = await reportedProductCollection.deleteOne(query);
+            res.send(result);
+        })
+
+        app.delete('/deletereporteditem', verifyJwt, veryifyAdmin, async (req, res) => {
+            filter = { _id: ObjectId(req.query.id) }
+            const deleteSellerProduct = await sellerProductCollection.deleteOne(filter);
+            const deleteProduct = await productCollection.deleteOne(filter);
+            return res.send(deleteProduct);
         })
 
         // Bookings
@@ -204,7 +244,7 @@ async function run() {
             res.send({ isSeller: user?.userType === "Seller" })
         })
 
-        app.get('/specificusers', verifyJwt, async (req, res) => {
+        app.get('/specificusers', verifyJwt, veryifyAdmin, async (req, res) => {
             let query = {}
             if (req?.query?.seller) {
                 query = { userType: req?.query?.seller }
@@ -231,6 +271,31 @@ async function run() {
                 return res.send(existingUser);
             }
             const result = await userCollection.insertOne(user);
+            res.send(result);
+        })
+
+        app.patch('/verifyuser', verifyJwt, veryifyAdmin, async (req, res) => {
+            const query = { email: req.query.email };
+            const updatedDoc = {
+                $set: {
+                    verified: true
+                }
+            }
+            const updatedUsers = await userCollection.updateOne(query, updatedDoc);
+            const updatedProduct = await productCollection.updateMany(query, updatedDoc);
+            const updatedSellerProduct = await sellerProductCollection.updateMany(query, updatedDoc)
+            res.send(updatedProduct)
+        })
+
+        app.delete('/users', verifyJwt, veryifyAdmin, async (req, res) => {
+            let query = {};
+            if (req?.query?.buyerId) {
+                query = { _id: ObjectId(req?.query?.buyerId) }
+            }
+            if (req?.query?.sellerId) {
+                query = { _id: ObjectId(req?.query?.sellerId) }
+            }
+            const result = await userCollection.deleteOne(query);
             res.send(result);
         })
     }
