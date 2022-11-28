@@ -188,12 +188,32 @@ async function run() {
             res.status(403).send({ accessToken: "" })
         })
 
+        // Admin
+        app.get('/users/admin/:email', async (req, res) => {
+            const email = req.params.email;
+            const query = { email };
+            const user = await userCollection.findOne(query);
+            res.send({ isAdmin: user?.userType === "Admin" })
+        })
+
         // Users
         app.get('/users/seller/:email', async (req, res) => {
             const email = req.params.email;
             const query = { email };
             const user = await userCollection.findOne(query);
             res.send({ isSeller: user?.userType === "Seller" })
+        })
+
+        app.get('/specificusers', verifyJwt, async (req, res) => {
+            let query = {}
+            if (req?.query?.seller) {
+                query = { userType: req?.query?.seller }
+            }
+            if (req?.query?.buyer) {
+                query = { userType: req?.query?.buyer }
+            }
+            const users = await userCollection.find(query).toArray();
+            res.send(users)
         })
 
         app.get('/users', verifyJwt, async (req, res) => {
